@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import MemberTable from '../components/members/MemberTable';
 import MemberForm from '../components/members/MemberForm';
 import { useAuthContext } from '../context/AuthProvider';
-import { membersAPI } from '../api/members.api'; // ADD THIS
+import { membersAPI } from '../api/members.api';
 
 const Members = () => {
   const { userRole, isAdmin, isStaff } = useAuthContext();
@@ -53,7 +53,8 @@ const Members = () => {
   const buttonContainerStyle = {
     display: 'flex',
     justifyContent: 'flex-end',
-    marginBottom: '20px'
+    marginBottom: '20px',
+    gap: '12px'
   };
 
   const addButtonStyle = {
@@ -73,6 +74,18 @@ const Members = () => {
   const loadingButtonStyle = {
     ...addButtonStyle,
     background: '#9ca3af'
+  };
+
+  const resetButtonStyle = {
+    padding: '12px 16px',
+    background: '#ef4444',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease'
   };
 
   const staffNoticeStyle = {
@@ -135,7 +148,7 @@ const Members = () => {
       setLoading(true);
       setError(null);
       const response = await membersAPI.getMembers();
-      setMembers(response.data);
+      setMembers(response.data.data); // Axios response structure: response.data.data
     } catch (err) {
       setError(err.message);
       console.error('Failed to load members:', err);
@@ -154,7 +167,7 @@ const Members = () => {
     try {
       setActionLoading(true);
       const response = await membersAPI.addMember(formData);
-      setMembers(prev => [...prev, response.data]);
+      setMembers(prev => [...prev, response.data.data]); // Axios response structure
       setShowForm(false);
       alert(`Added new member: ${formData.name}`);
     } catch (err) {
@@ -183,7 +196,7 @@ const Members = () => {
       const response = await membersAPI.updateMember(editingMember.id, formData);
       setMembers(prev => 
         prev.map(member => 
-          member.id === editingMember.id ? response.data : member
+          member.id === editingMember.id ? response.data.data : member // Axios response structure
         )
       );
       setShowForm(false);
@@ -253,6 +266,22 @@ const Members = () => {
     loadMembers();
   };
 
+  // Reset data to default
+  const handleResetData = async () => {
+    if (window.confirm('Are you sure you want to reset all data to default? This cannot be undone.')) {
+      try {
+        setActionLoading(true);
+        await membersAPI.clearData();
+        await loadMembers();
+        alert('Data has been reset to default values');
+      } catch (err) {
+        alert(`Error resetting data: ${err.message}`);
+      } finally {
+        setActionLoading(false);
+      }
+    }
+  };
+
   return (
     <div style={pageStyle}>
       <div style={headerStyle}>
@@ -316,6 +345,25 @@ const Members = () => {
               }}
             >
               {actionLoading ? 'Loading...' : '+ Add New Member'}
+            </button>
+
+            {/* Reset Data Button */}
+            <button 
+              onClick={handleResetData}
+              style={resetButtonStyle}
+              disabled={actionLoading}
+              onMouseEnter={(e) => {
+                if (!actionLoading) {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = 'none';
+              }}
+            >
+              Reset Data
             </button>
           </div>
         )}

@@ -1,18 +1,76 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
 
-const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
-  const { register, handleSubmit, formState: { errors } } = useForm({
+// Yup validation schema with fixed date validation
+const memberSchema = yup.object({
+  name: yup
+    .string()
+    .required('Full name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .max(50, 'Name must be less than 50 characters'),
+  
+  email: yup
+    .string()
+    .required('Email is required')
+    .email('Please enter a valid email address'),
+  
+  phone: yup
+    .string()
+    .matches(/^\+?[\d\s-()]+$/, 'Please enter a valid phone number')
+    .nullable(),
+  
+  plan: yup
+    .string()
+    .required('Membership plan is required')
+    .oneOf(['Basic', 'Standard', 'Premium'], 'Please select a valid plan'),
+  
+  startDate: yup
+    .string()
+    .required('Start date is required')
+    .test('is-future-or-today', 'Start date cannot be in the past', function(value) {
+      if (!value) return true;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to beginning of day
+      const selectedDate = new Date(value);
+      return selectedDate >= today;
+    }),
+  
+  expiryDate: yup
+    .string()
+    .required('Expiry date is required')
+    .test('is-after-start', 'Expiry date must be after start date', function(value) {
+      if (!value) return true;
+      const startDate = this.parent.startDate;
+      if (!startDate) return true;
+      return new Date(value) > new Date(startDate);
+    }),
+  
+  amount: yup
+    .number()
+    .typeError('Amount must be a number')
+    .min(0, 'Amount cannot be negative')
+    .nullable()
+    .transform((value) => (isNaN(value) || value === '' ? undefined : value))
+});
+
+const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true, loading = false }) => {
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm({
+    resolver: yupResolver(memberSchema),
     defaultValues: member || {
       name: '',
       email: '',
       phone: '',
       plan: 'Basic',
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: new Date().toISOString().split('T')[0], // Today's date as default
       expiryDate: '',
       amount: '0'
     }
   });
+
+  // Watch startDate to auto-calculate expiry date
+  const startDate = watch('startDate');
 
   // Check if field should be disabled for staff
   const isFieldDisabled = (fieldName) => {
@@ -116,14 +174,15 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
 
   const submitButtonStyle = {
     padding: '10px 20px',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    background: loading ? '#9ca3af' : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
     fontSize: '0.875rem',
     fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease'
+    cursor: loading ? 'not-allowed' : 'pointer',
+    transition: 'all 0.2s ease',
+    opacity: loading ? 0.7 : 1
   };
 
   const cancelButtonStyle = {
@@ -139,11 +198,8 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
   };
 
   const handleFormSubmit = (data) => {
-    if (onSubmit) {
+    if (onSubmit && !loading) {
       onSubmit(data);
-    } else {
-      console.log('Form data:', data);
-      alert('Form submitted with: ' + JSON.stringify(data, null, 2));
     }
   };
 
@@ -154,6 +210,14 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
     date.setDate(date.getDate() + 30);
     return date.toISOString().split('T')[0];
   };
+
+  // Auto-set expiry date when start date changes
+  React.useEffect(() => {
+    if (startDate && !member?.expiryDate) {
+      const expiryDate = calculateExpiryDate(startDate);
+      setValue('expiryDate', expiryDate);
+    }
+  }, [startDate, member, setValue]);
 
   return (
     <div style={formStyle}>
@@ -177,10 +241,10 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
             <label style={labelStyle}>Full Name *</label>
             <input
               type="text"
-              style={errors.name ? errorInputStyle : inputStyle}
-              {...register('name', { required: 'Name is required' })}
+              style={errors.name ? errorInputStyle : (isFieldDisabled('name') ? disabledInputStyle : inputStyle)}
+              {...register('name')}
               placeholder="Enter full name"
-              disabled={isFieldDisabled('name')}
+              disabled={isFieldDisabled('name') || loading}
             />
             {errors.name && <p style={errorStyle}>{errors.name.message}</p>}
           </div>
@@ -190,16 +254,10 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
             <label style={labelStyle}>Email Address *</label>
             <input
               type="email"
-              style={errors.email ? errorInputStyle : inputStyle}
-              {...register('email', { 
-                required: 'Email is required',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Invalid email address'
-                }
-              })}
+              style={errors.email ? errorInputStyle : (isFieldDisabled('email') ? disabledInputStyle : inputStyle)}
+              {...register('email')}
               placeholder="Enter email address"
-              disabled={isFieldDisabled('email')}
+              disabled={isFieldDisabled('email') || loading}
             />
             {errors.email && <p style={errorStyle}>{errors.email.message}</p>}
           </div>
@@ -212,8 +270,9 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
               style={isFieldDisabled('phone') ? disabledInputStyle : inputStyle}
               {...register('phone')}
               placeholder="Enter phone number"
-              disabled={isFieldDisabled('phone')}
+              disabled={isFieldDisabled('phone') || loading}
             />
+            {errors.phone && <p style={errorStyle}>{errors.phone.message}</p>}
           </div>
 
           {/* Plan Selection */}
@@ -221,8 +280,8 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
             <label style={labelStyle}>Membership Plan *</label>
             <select
               style={isFieldDisabled('plan') ? disabledSelectStyle : selectStyle}
-              {...register('plan', { required: 'Plan is required' })}
-              disabled={isFieldDisabled('plan')}
+              {...register('plan')}
+              disabled={isFieldDisabled('plan') || loading}
             >
               <option value="Basic">Basic ($30/month)</option>
               <option value="Standard">Standard ($50/month)</option>
@@ -237,19 +296,8 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
             <input
               type="date"
               style={errors.startDate ? errorInputStyle : (isFieldDisabled('startDate') ? disabledInputStyle : inputStyle)}
-              {...register('startDate', { 
-                required: 'Start date is required'
-              })}
-              disabled={isFieldDisabled('startDate')}
-              onChange={(e) => {
-                if (!isFieldDisabled('expiryDate')) {
-                  const expiryDate = calculateExpiryDate(e.target.value);
-                  if (!member?.expiryDate) {
-                    const expiryInput = document.querySelector('input[name="expiryDate"]');
-                    if (expiryInput) expiryInput.value = expiryDate;
-                  }
-                }
-              }}
+              {...register('startDate')}
+              disabled={isFieldDisabled('startDate') || loading}
             />
             {errors.startDate && <p style={errorStyle}>{errors.startDate.message}</p>}
           </div>
@@ -260,10 +308,8 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
             <input
               type="date"
               style={errors.expiryDate ? errorInputStyle : (isFieldDisabled('expiryDate') ? disabledInputStyle : inputStyle)}
-              {...register('expiryDate', { 
-                required: 'Expiry date is required'
-              })}
-              disabled={isFieldDisabled('expiryDate')}
+              {...register('expiryDate')}
+              disabled={isFieldDisabled('expiryDate') || loading}
             />
             {errors.expiryDate && <p style={errorStyle}>{errors.expiryDate.message}</p>}
           </div>
@@ -280,8 +326,9 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
               style={isFieldDisabled('amount') ? disabledInputStyle : inputStyle}
               {...register('amount')}
               placeholder="0.00"
-              disabled={isFieldDisabled('amount')}
+              disabled={isFieldDisabled('amount') || loading}
             />
+            {errors.amount && <p style={errorStyle}>{errors.amount.message}</p>}
             {!isAdmin && (
               <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '4px 0 0 0' }}>
                 Only administrators can update financial information
@@ -296,14 +343,16 @@ const MemberForm = ({ member, onSubmit, onCancel, isAdmin = true }) => {
             type="button" 
             style={cancelButtonStyle}
             onClick={onCancel}
+            disabled={loading}
           >
             Cancel
           </button>
           <button 
             type="submit" 
             style={submitButtonStyle}
+            disabled={loading}
           >
-            {member ? 'Update Member' : 'Add Member'}
+            {loading ? 'Processing...' : (member ? 'Update Member' : 'Add Member')}
           </button>
         </div>
       </form>

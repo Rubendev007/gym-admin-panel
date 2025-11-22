@@ -1,7 +1,37 @@
-// Simulated API service for members with localStorage persistence
+import axios from 'axios';
 
-// Simulate network delay
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// Create axios instance with default config
+const apiClient = axios.create({
+  baseURL: '/api', // This would be your actual API base URL
+  timeout: 5000,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+
+// Add request interceptor for logging
+apiClient.interceptors.request.use(
+  (config) => {
+    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => {
+    console.log(`API Response: ${response.status} ${response.config.url}`);
+    return response;
+  },
+  (error) => {
+    console.error('API Response Error:', error);
+    return Promise.reject(error);
+  }
+);
 
 // localStorage key
 const STORAGE_KEY = 'gym_members_data';
@@ -88,32 +118,36 @@ const calculateStatus = (expiryDate) => {
   return 'Active';
 };
 
-// API Functions
+// Simulate network delay
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// API Functions using Axios patterns
 export const membersAPI = {
   // Get all members
   getMembers: async () => {
-    await delay(800); // Simulate network delay
-    console.log('API: Fetching members from localStorage');
-    
-    // Reload from localStorage to ensure we have latest data
-    simulatedMembers = getStoredMembers();
+    await delay(800);
     
     // Simulate random network error (10% chance)
     if (Math.random() < 0.1) {
       throw new Error('Network error: Failed to fetch members');
     }
     
+    // Reload from localStorage to ensure we have latest data
+    simulatedMembers = getStoredMembers();
+    
+    // Simulate axios response structure
     return {
-      success: true,
-      data: [...simulatedMembers],
-      message: 'Members fetched successfully'
+      data: {
+        success: true,
+        data: [...simulatedMembers],
+        message: 'Members fetched successfully'
+      }
     };
   },
 
   // Add new member
   addMember: async (memberData) => {
     await delay(500);
-    console.log('API: Adding member', memberData);
     
     // Reload current data
     simulatedMembers = getStoredMembers();
@@ -126,26 +160,30 @@ export const membersAPI = {
     };
     
     simulatedMembers.push(newMember);
-    saveMembers(simulatedMembers); // Save to localStorage
+    saveMembers(simulatedMembers);
     
+    // Simulate axios response
     return {
-      success: true,
-      data: newMember,
-      message: 'Member added successfully'
+      data: {
+        success: true,
+        data: newMember,
+        message: 'Member added successfully'
+      }
     };
   },
 
   // Update member
   updateMember: async (id, memberData) => {
     await delay(500);
-    console.log('API: Updating member', id, memberData);
     
     // Reload current data
     simulatedMembers = getStoredMembers();
     
     const memberIndex = simulatedMembers.findIndex(m => m.id === id);
     if (memberIndex === -1) {
-      throw new Error('Member not found');
+      const error = new Error('Member not found');
+      error.response = { status: 404 };
+      throw error;
     }
     
     const updatedMember = {
@@ -156,36 +194,41 @@ export const membersAPI = {
     };
     
     simulatedMembers[memberIndex] = updatedMember;
-    saveMembers(simulatedMembers); // Save to localStorage
+    saveMembers(simulatedMembers);
     
     return {
-      success: true,
-      data: updatedMember,
-      message: 'Member updated successfully'
+      data: {
+        success: true,
+        data: updatedMember,
+        message: 'Member updated successfully'
+      }
     };
   },
 
   // Delete member
   deleteMember: async (id) => {
     await delay(300);
-    console.log('API: Deleting member', id);
     
     // Reload current data
     simulatedMembers = getStoredMembers();
     
     const memberIndex = simulatedMembers.findIndex(m => m.id === id);
     if (memberIndex === -1) {
-      throw new Error('Member not found');
+      const error = new Error('Member not found');
+      error.response = { status: 404 };
+      throw error;
     }
     
     const deletedMember = simulatedMembers[memberIndex];
     simulatedMembers = simulatedMembers.filter(m => m.id !== id);
-    saveMembers(simulatedMembers); // Save to localStorage
+    saveMembers(simulatedMembers);
     
     return {
-      success: true,
-      data: deletedMember,
-      message: 'Member deleted successfully'
+      data: {
+        success: true,
+        data: deletedMember,
+        message: 'Member deleted successfully'
+      }
     };
   },
 
@@ -198,23 +241,29 @@ export const membersAPI = {
     
     const member = simulatedMembers.find(m => m.id === id);
     if (!member) {
-      throw new Error('Member not found');
+      const error = new Error('Member not found');
+      error.response = { status: 404 };
+      throw error;
     }
     
     return {
-      success: true,
-      data: member,
-      message: 'Member fetched successfully'
+      data: {
+        success: true,
+        data: member,
+        message: 'Member fetched successfully'
+      }
     };
   },
 
   // Clear all data (for testing/reset)
   clearData: async () => {
     localStorage.removeItem(STORAGE_KEY);
-    simulatedMembers = getStoredMembers(); // This will reload defaults
+    simulatedMembers = getStoredMembers();
     return {
-      success: true,
-      message: 'Data cleared successfully'
+      data: {
+        success: true,
+        message: 'Data cleared successfully'
+      }
     };
   }
 };
