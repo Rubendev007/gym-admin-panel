@@ -1,22 +1,44 @@
 import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AuthProvider from './context/AuthProvider';
-import { routes } from './routes.config';
+import Dashboard from './pages/Dashboard';
+import Members from './pages/Members';
+import './App.css';
 
 function App() {
   return (
     <AuthProvider>
-      <div className="App">
-        <h1>Gym Admin Panel</h1>
-        <p>Authentication system is ready!</p>
-        <p>Available routes:</p>
-        <ul>
-          {Object.values(routes).map(route => (
-            <li key={route}>{route}</li>
-          ))}
-        </ul>
-      </div>
+      <Router>
+        <div className="App">
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/members" element={<Members />} />
+          </Routes>
+        </div>
+      </Router>
     </AuthProvider>
   );
 }
 
 export default App;
+
+// export default App;
+
+// import React from 'react';
+// import AuthProvider from './context/AuthProvider';
+// import Dashboard from './pages/Dashboard';
+// import './App.css';
+
+// function App() {
+//   return (
+//     <AuthProvider>
+//       <div className="App">
+//         <Dashboard />
+//       </div>
+//     </AuthProvider>
+//   );
+// }
+
+// export default App;
+

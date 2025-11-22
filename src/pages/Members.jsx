@@ -1,0 +1,362 @@
+import React, { useState, useEffect } from 'react';
+import MemberTable from '../components/members/MemberTable';
+import MemberForm from '../components/members/MemberForm';
+import { useAuthContext } from '../context/AuthProvider';
+import { membersAPI } from '../api/members.api'; // ADD THIS
+
+const Members = () => {
+  const { userRole, isAdmin, isStaff } = useAuthContext();
+
+  // State management
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingMember, setEditingMember] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const pageStyle = {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+    padding: 'clamp(16px, 4vw, 24px)',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif'
+  };
+
+  const headerStyle = {
+    textAlign: 'center',
+    marginBottom: 'clamp(24px, 5vw, 40px)'
+  };
+
+  const titleStyle = {
+    fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+    fontWeight: '800',
+    margin: '0 0 8px 0',
+    background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 50%, #8b5cf6 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+    letterSpacing: '-0.025em'
+  };
+
+  const subtitleStyle = {
+    fontSize: 'clamp(1rem, 2.5vw, 1.125rem)',
+    color: '#64748b',
+    margin: '0',
+    fontWeight: '500'
+  };
+
+  const contentStyle = {
+    maxWidth: '1400px',
+    margin: '0 auto'
+  };
+
+  const buttonContainerStyle = {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginBottom: '20px'
+  };
+
+  const addButtonStyle = {
+    padding: '12px 24px',
+    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    opacity: actionLoading ? 0.6 : 1,
+    pointerEvents: actionLoading ? 'none' : 'auto'
+  };
+
+  const loadingButtonStyle = {
+    ...addButtonStyle,
+    background: '#9ca3af'
+  };
+
+  const staffNoticeStyle = {
+    background: 'linear-gradient(135deg, #fef3c7 0%, #fef7cd 100%)',
+    border: '1px solid #fcd34d',
+    borderRadius: '8px',
+    padding: '16px',
+    marginBottom: '20px',
+    textAlign: 'center'
+  };
+
+  const errorStyle = {
+    background: 'linear-gradient(135deg, #fecaca 0%, #fef2f2 100%)',
+    border: '1px solid #fca5a5',
+    borderRadius: '8px',
+    padding: '16px',
+    marginBottom: '20px',
+    color: '#dc2626'
+  };
+
+  const loadingStyle = {
+    background: 'white',
+    borderRadius: '12px',
+    padding: '40px',
+    textAlign: 'center',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
+  };
+
+  const modalOverlayStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    padding: '20px'
+  };
+
+  const modalContentStyle = {
+    background: 'white',
+    borderRadius: '12px',
+    maxWidth: '600px',
+    width: '100%',
+    maxHeight: '90vh',
+    overflow: 'auto'
+  };
+
+  // Load members on component mount
+  useEffect(() => {
+    loadMembers();
+  }, []);
+
+  // Load members from API
+  const loadMembers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await membersAPI.getMembers();
+      setMembers(response.data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Failed to load members:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add new member - Only Admin
+  const handleAddMember = async (formData) => {
+    if (!isAdmin()) {
+      alert('Only administrators can add new members');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const response = await membersAPI.addMember(formData);
+      setMembers(prev => [...prev, response.data]);
+      setShowForm(false);
+      alert(`Added new member: ${formData.name}`);
+    } catch (err) {
+      alert(`Error adding member: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Update existing member
+  const handleUpdateMember = async (formData) => {
+    try {
+      setActionLoading(true);
+      
+      if (!isAdmin()) {
+        // Staff can only update basic info
+        const staffAllowedFields = ['name', 'email', 'phone', 'plan', 'startDate', 'expiryDate'];
+        const staffFormData = {};
+        staffAllowedFields.forEach(field => {
+          staffFormData[field] = formData[field];
+        });
+        
+        formData = { ...editingMember, ...staffFormData };
+      }
+
+      const response = await membersAPI.updateMember(editingMember.id, formData);
+      setMembers(prev => 
+        prev.map(member => 
+          member.id === editingMember.id ? response.data : member
+        )
+      );
+      setShowForm(false);
+      setEditingMember(null);
+      alert(`Updated member: ${formData.name}`);
+    } catch (err) {
+      alert(`Error updating member: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete member - Only Admin
+  const handleDeleteMember = async (memberToDelete) => {
+    if (!isAdmin()) {
+      alert('Only administrators can delete members');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete ${memberToDelete.name}?`)) {
+      try {
+        setActionLoading(true);
+        await membersAPI.deleteMember(memberToDelete.id);
+        setMembers(prev => prev.filter(member => member.id !== memberToDelete.id));
+        alert(`Deleted member: ${memberToDelete.name}`);
+      } catch (err) {
+        alert(`Error deleting member: ${err.message}`);
+      } finally {
+        setActionLoading(false);
+      }
+    }
+  };
+
+  // Edit member
+  const handleEditMember = (member) => {
+    setEditingMember(member);
+    setShowForm(true);
+  };
+
+  // Form submission handler
+  const handleFormSubmit = async (formData) => {
+    if (editingMember) {
+      await handleUpdateMember(formData);
+    } else {
+      await handleAddMember(formData);
+    }
+  };
+
+  // Form cancel handler
+  const handleFormCancel = () => {
+    setShowForm(false);
+    setEditingMember(null);
+  };
+
+  // Open form for adding new member - Only Admin
+  const handleAddNewMember = () => {
+    if (!isAdmin()) {
+      alert('Only administrators can add new members');
+      return;
+    }
+    setEditingMember(null);
+    setShowForm(true);
+  };
+
+  // Retry loading members
+  const handleRetry = () => {
+    loadMembers();
+  };
+
+  return (
+    <div style={pageStyle}>
+      <div style={headerStyle}>
+        <h1 style={titleStyle}>
+          {isAdmin() ? 'Member Management' : 'Member Directory'}
+        </h1>
+        <p style={subtitleStyle}>
+          {isAdmin() 
+            ? 'Manage all gym members and their membership details' 
+            : 'View member information and contact details'
+          }
+        </p>
+      </div>
+      
+      <div style={contentStyle}>
+        {/* Staff Notice */}
+        {isStaff() && (
+          <div style={staffNoticeStyle}>
+            <strong>Staff Access:</strong> You can view member details and update basic information. 
+            Financial operations and member deletion require administrator privileges.
+          </div>
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div style={errorStyle}>
+            <strong>Error:</strong> {error}
+            <button 
+              onClick={handleRetry}
+              style={{
+                marginLeft: '10px',
+                padding: '5px 10px',
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Add Member Button - Only for Admin */}
+        {isAdmin() && (
+          <div style={buttonContainerStyle}>
+            <button 
+              style={actionLoading ? loadingButtonStyle : addButtonStyle}
+              onClick={handleAddNewMember}
+              disabled={actionLoading}
+              onMouseEnter={(e) => {
+                if (!actionLoading) {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = 'none';
+              }}
+            >
+              {actionLoading ? 'Loading...' : '+ Add New Member'}
+            </button>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div style={loadingStyle}>
+            <div style={{ fontSize: '2rem', marginBottom: '16px' }}>⏳</div>
+            <h3 style={{ color: '#64748b', margin: '0 0 8px 0' }}>Loading Members...</h3>
+            <p style={{ color: '#94a3b8', margin: 0 }}>Please wait while we fetch member data</p>
+          </div>
+        )}
+
+        {/* Member Table */}
+        {!loading && !error && (
+          <MemberTable 
+            members={members}
+            onEdit={handleEditMember}
+            onDelete={isAdmin() ? handleDeleteMember : undefined}
+            canEdit={true}
+            loading={actionLoading}
+          />
+        )}
+
+        {/* Member Form Modal */}
+        {showForm && (
+          <div style={modalOverlayStyle} onClick={handleFormCancel}>
+            <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+              <MemberForm 
+                member={editingMember}
+                onSubmit={handleFormSubmit}
+                onCancel={handleFormCancel}
+                isAdmin={isAdmin()}
+                loading={actionLoading}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Members;
