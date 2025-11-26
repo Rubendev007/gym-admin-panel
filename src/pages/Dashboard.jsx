@@ -1,12 +1,33 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import RevenueChart from '../components/dashboard/RevenueChart';
 import MembershipChart from '../components/dashboard/MembershipChart';
 import StatsCard from '../components/dashboard/StatsCard';
 import QuickInvoiceButton from '../components/dashboard/QuickInvoiceButton';
-import { useAuthContext } from '../context/AuthProvider'; // ADD THIS LINE
+import { useAuthContext } from '../context/AuthProvider';
+import { showToast } from '../components/ui/Toast';
 
 const Dashboard = () => {
-  const { userRole, isAdmin, isStaff } = useAuthContext(); // ADD THIS LINE
+  const { userRole, isAdmin, isStaff } = useAuthContext();
+  const hasShownToasts = useRef(false);
+
+  // Simulate data loading with toast notifications
+  useEffect(() => {
+    if (hasShownToasts.current) return;
+    hasShownToasts.current = true;
+    
+    const loadingToast = showToast.loading('Loading dashboard data...');
+    
+    // Simulate API call
+    setTimeout(() => {
+      showToast.dismiss(loadingToast);
+      showToast.success('Dashboard loaded successfully!');
+    }, 1500);
+
+    // Simulate checking for expiring memberships
+    setTimeout(() => {
+      showToast.warning('23 memberships expiring this month');
+    }, 3000);
+  }, []);
 
   // ALL STYLE DEFINITIONS (keep your existing styles)
   const dashboardStyle = {
@@ -116,27 +137,33 @@ const Dashboard = () => {
       <div style={statsGridStyle}>
         {/* Admin sees financial data, Staff sees basic stats */}
         {isAdmin() && (
-          <StatsCard 
-            title="Today's Income" 
-            value="$2,840" 
-            icon="💰"
-            color="blue"
-          />
+          <div onClick={() => showToast.info('Revenue updated in real-time')}>
+            <StatsCard 
+              title="Today's Income" 
+              value="$2,840" 
+              icon="💰"
+              color="blue"
+            />
+          </div>
         )}
         
-        <StatsCard 
-          title="Active Members" 
-          value="156" 
-          icon="👥"
-          color="green"
-        />
+        <div onClick={() => showToast.success('Member count: 156 active members')}>
+          <StatsCard 
+            title="Active Members" 
+            value="156" 
+            icon="👥"
+            color="green"
+          />
+        </div>
         
-        <StatsCard 
-          title="Expiring Memberships" 
-          value="23" 
-          icon="⚠️"
-          color="orange"
-        />
+        <div onClick={() => showToast.warning('23 memberships need renewal attention')}>
+          <StatsCard 
+            title="Expiring Memberships" 
+            value="23" 
+            icon="⚠️"
+            color="orange"
+          />
+        </div>
         
         {/* Only Admin can create invoices */}
         {isAdmin() && (

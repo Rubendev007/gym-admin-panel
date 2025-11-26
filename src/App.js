@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import AuthProvider from './context/AuthProvider';
 import Dashboard from './pages/Dashboard';
 import Members from './pages/Members';
+import ToastContainer from './components/ui/Toast';
 import './App.css';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/members" element={<Members />} />
           </Routes>
+          <ToastContainer />
         </div>
       </Router>
     </AuthProvider>

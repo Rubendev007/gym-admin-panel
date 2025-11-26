@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MemberTable from '../components/members/MemberTable';
 import MemberForm from '../components/members/MemberForm';
 import { useAuthContext } from '../context/AuthProvider';
 import { membersAPI } from '../api/members.api';
+import { showToast } from '../components/ui/Toast';
 
 const Members = () => {
   const { userRole, isAdmin, isStaff } = useAuthContext();
+  const hasLoadedInitially = useRef(false);
 
   // State management
   const [members, setMembers] = useState([]);
@@ -139,18 +141,32 @@ const Members = () => {
 
   // Load members on component mount
   useEffect(() => {
-    loadMembers();
+    if (hasLoadedInitially.current) return;
+    hasLoadedInitially.current = true;
+    loadMembers(false); // Don't show toasts on initial load
   }, []);
 
   // Load members from API
-  const loadMembers = async () => {
+  const loadMembers = async (showToasts = true) => {
+    let loadingToast;
+    if (showToasts) {
+      loadingToast = showToast.loading('Loading members...');
+    }
     try {
       setLoading(true);
       setError(null);
       const response = await membersAPI.getMembers();
-      setMembers(response.data.data); // Axios response structure: response.data.data
+      setMembers(response.data.data);
+      if (showToasts) {
+        showToast.dismiss(loadingToast);
+        showToast.success(`Loaded ${response.data.data.length} members successfully`);
+      }
     } catch (err) {
       setError(err.message);
+      if (showToasts) {
+        showToast.dismiss(loadingToast);
+        showToast.error(`Failed to load members: ${err.message}`);
+      }
       console.error('Failed to load members:', err);
     } finally {
       setLoading(false);
@@ -160,18 +176,21 @@ const Members = () => {
   // Add new member - Only Admin
   const handleAddMember = async (formData) => {
     if (!isAdmin()) {
-      alert('Only administrators can add new members');
+      showToast.error('Only administrators can add new members');
       return;
     }
 
+    const loadingToast = showToast.loading('Adding new member...');
     try {
       setActionLoading(true);
       const response = await membersAPI.addMember(formData);
-      setMembers(prev => [...prev, response.data.data]); // Axios response structure
+      setMembers(prev => [...prev, response.data.data]);
       setShowForm(false);
-      alert(`Added new member: ${formData.name}`);
+      showToast.dismiss(loadingToast);
+      showToast.success(`Successfully added ${formData.name}!`);
     } catch (err) {
-      alert(`Error adding member: ${err.message}`);
+      showToast.dismiss(loadingToast);
+      showToast.error(`Failed to add member: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -179,6 +198,7 @@ const Members = () => {
 
   // Update existing member
   const handleUpdateMember = async (formData) => {
+    const loadingToast = showToast.loading('Updating member...');
     try {
       setActionLoading(true);
       
@@ -191,19 +211,22 @@ const Members = () => {
         });
         
         formData = { ...editingMember, ...staffFormData };
+        showToast.info('Staff update: Basic information only');
       }
 
       const response = await membersAPI.updateMember(editingMember.id, formData);
       setMembers(prev => 
         prev.map(member => 
-          member.id === editingMember.id ? response.data.data : member // Axios response structure
+          member.id === editingMember.id ? response.data.data : member
         )
       );
       setShowForm(false);
       setEditingMember(null);
-      alert(`Updated member: ${formData.name}`);
+      showToast.dismiss(loadingToast);
+      showToast.success(`Successfully updated ${formData.name}!`);
     } catch (err) {
-      alert(`Error updating member: ${err.message}`);
+      showToast.dismiss(loadingToast);
+      showToast.error(`Failed to update member: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -212,18 +235,21 @@ const Members = () => {
   // Delete member - Only Admin
   const handleDeleteMember = async (memberToDelete) => {
     if (!isAdmin()) {
-      alert('Only administrators can delete members');
+      showToast.error('Only administrators can delete members');
       return;
     }
 
     if (window.confirm(`Are you sure you want to delete ${memberToDelete.name}?`)) {
+      const loadingToast = showToast.loading('Deleting member...');
       try {
         setActionLoading(true);
         await membersAPI.deleteMember(memberToDelete.id);
         setMembers(prev => prev.filter(member => member.id !== memberToDelete.id));
-        alert(`Deleted member: ${memberToDelete.name}`);
+        showToast.dismiss(loadingToast);
+        showToast.success(`Successfully deleted ${memberToDelete.name}`);
       } catch (err) {
-        alert(`Error deleting member: ${err.message}`);
+        showToast.dismiss(loadingToast);
+        showToast.error(`Failed to delete member: ${err.message}`);
       } finally {
         setActionLoading(false);
       }
@@ -254,28 +280,32 @@ const Members = () => {
   // Open form for adding new member - Only Admin
   const handleAddNewMember = () => {
     if (!isAdmin()) {
-      alert('Only administrators can add new members');
+      showToast.error('Only administrators can add new members');
       return;
     }
+    showToast.info('Opening member registration form');
     setEditingMember(null);
     setShowForm(true);
   };
 
   // Retry loading members
   const handleRetry = () => {
-    loadMembers();
+    loadMembers(true); // Show toasts on manual retry
   };
 
   // Reset data to default
   const handleResetData = async () => {
     if (window.confirm('Are you sure you want to reset all data to default? This cannot be undone.')) {
+      const loadingToast = showToast.loading('Resetting data...');
       try {
         setActionLoading(true);
         await membersAPI.clearData();
-        await loadMembers();
-        alert('Data has been reset to default values');
+        await loadMembers(false); // Don't show load toasts during reset
+        showToast.dismiss(loadingToast);
+        showToast.success('Data has been reset to default values');
       } catch (err) {
-        alert(`Error resetting data: ${err.message}`);
+        showToast.dismiss(loadingToast);
+        showToast.error(`Failed to reset data: ${err.message}`);
       } finally {
         setActionLoading(false);
       }

@@ -6,7 +6,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
-import ChartContainer from '../../ui/ChartContainer';
+import ChartContainer from '../ui/ChartContainer';
 
 
 ChartJS.register(ArcElement, Tooltip, Legend);
