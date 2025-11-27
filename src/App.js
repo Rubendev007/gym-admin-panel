@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import AuthProvider from './context/AuthProvider';
 import Dashboard from './pages/Dashboard';
 import Members from './pages/Members';
+import Plans from './pages/Plans';
 import ToastContainer from './components/ui/Toast';
 import './App.css';
 
@@ -15,6 +16,7 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/members" element={<Members />} />
+            <Route path="/plans" element={<Plans />} />
           </Routes>
           <ToastContainer />
         </div>
@@ -24,23 +26,3 @@ function App() {
 }
 
 export default App;
-
-// export default App;
-
-// import React from 'react';
-// import AuthProvider from './context/AuthProvider';
-// import Dashboard from './pages/Dashboard';
-// import './App.css';
-
-// function App() {
-//   return (
-//     <AuthProvider>
-//       <div className="App">
-//         <Dashboard />
-//       </div>
-//     </AuthProvider>
-//   );
-// }
-
-// export default App;
-

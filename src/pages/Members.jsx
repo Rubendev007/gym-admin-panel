@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import MemberTable from '../components/members/MemberTable';
 import MemberForm from '../components/members/MemberForm';
+import SearchAndFilter from '../components/members/SearchAndFilter';
+import BulkActions from '../components/members/BulkActions';
 import { useAuthContext } from '../context/AuthProvider';
 import { membersAPI } from '../api/members.api';
 import { showToast } from '../components/ui/Toast';
@@ -16,6 +18,17 @@ const Members = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Search and Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    status: '',
+    plan: '',
+    dateRange: ''
+  });
+
+  // Bulk actions state
+  const [selectedMembers, setSelectedMembers] = useState([]);
 
   const pageStyle = {
     minHeight: '100vh',
@@ -137,6 +150,105 @@ const Members = () => {
     width: '100%',
     maxHeight: '90vh',
     overflow: 'auto'
+  };
+
+  // Filter members function
+  const filterMembers = (members) => {
+    return members.filter(member => {
+      // Search filter
+      const matchesSearch = searchTerm === '' || 
+        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (member.phone && member.phone.includes(searchTerm));
+
+      // Status filter
+      const matchesStatus = !filters.status || member.status === filters.status;
+      
+      // Plan filter
+      const matchesPlan = !filters.plan || member.plan === filters.plan;
+
+      return matchesSearch && matchesStatus && matchesPlan;
+    });
+  };
+
+  // Get filtered members
+  const filteredMembers = filterMembers(members);
+
+  // Search and filter handlers
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+  };
+
+  const handleFilter = (newFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFilters({ status: '', plan: '', dateRange: '' });
+  };
+
+  // Bulk action handlers
+  const handleSelectionChange = (member, isSelected) => {
+    setSelectedMembers(prev => {
+      if (isSelected) {
+        return [...prev, member];
+      } else {
+        return prev.filter(m => m.id !== member.id);
+      }
+    });
+  };
+
+  const handleBulkUpdate = async (members, updateData) => {
+    try {
+      setActionLoading(true);
+      
+      // Update each member
+      for (const member of members) {
+        await membersAPI.updateMember(member.id, {
+          ...member,
+          ...updateData
+        });
+      }
+      
+      // Reload members
+      await loadMembers();
+      setSelectedMembers([]);
+      alert(`Updated ${members.length} members successfully`);
+    } catch (err) {
+      alert(`Error updating members: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async (membersToDelete) => {
+    if (!isAdmin()) {
+      alert('Only administrators can delete members');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete ${membersToDelete.length} members?`)) {
+      try {
+        setActionLoading(true);
+        
+        for (const member of membersToDelete) {
+          await membersAPI.deleteMember(member.id);
+        }
+        
+        await loadMembers();
+        setSelectedMembers([]);
+        alert(`Deleted ${membersToDelete.length} members successfully`);
+      } catch (err) {
+        alert(`Error deleting members: ${err.message}`);
+      } finally {
+        setActionLoading(false);
+      }
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedMembers([]);
   };
 
   // Load members on component mount
@@ -356,6 +468,17 @@ const Members = () => {
           </div>
         )}
 
+        {/* Bulk Actions Component */}
+        {selectedMembers.length > 0 && (
+          <BulkActions 
+            selectedMembers={selectedMembers}
+            onBulkUpdate={handleBulkUpdate}
+            onBulkDelete={handleBulkDelete}
+            onClearSelection={handleClearSelection}
+            loading={actionLoading}
+          />
+        )}
+
         {/* Add Member Button - Only for Admin */}
         {isAdmin() && (
           <div style={buttonContainerStyle}>
@@ -407,14 +530,26 @@ const Members = () => {
           </div>
         )}
 
+        {/* Search and Filter Component */}
+        {!loading && !error && (
+          <SearchAndFilter 
+            onSearch={handleSearch}
+            onFilter={handleFilter}
+            onClear={handleClearFilters}
+            loading={actionLoading}
+          />
+        )}
+
         {/* Member Table */}
         {!loading && !error && (
           <MemberTable 
-            members={members}
+            members={filteredMembers}  // Use filteredMembers instead of members
             onEdit={handleEditMember}
             onDelete={isAdmin() ? handleDeleteMember : undefined}
             canEdit={true}
             loading={actionLoading}
+            selectedMembers={selectedMembers}
+            onSelectionChange={handleSelectionChange}
           />
         )}
 

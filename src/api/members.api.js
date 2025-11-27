@@ -173,38 +173,38 @@ export const membersAPI = {
   },
 
   // Update member
-  updateMember: async (id, memberData) => {
-    await delay(500);
-    
-    // Reload current data
-    simulatedMembers = getStoredMembers();
-    
-    const memberIndex = simulatedMembers.findIndex(m => m.id === id);
-    if (memberIndex === -1) {
-      const error = new Error('Member not found');
-      error.response = { status: 404 };
-      throw error;
+updateMember: async (id, memberData) => {
+  await delay(500);
+  
+  // Reload current data
+  simulatedMembers = getStoredMembers();
+  
+  const memberIndex = simulatedMembers.findIndex(m => m.id === id);
+  if (memberIndex === -1) {
+    const error = new Error('Member not found');
+    error.response = { status: 404 };
+    throw error;
+  }
+  
+  const updatedMember = {
+    ...simulatedMembers[memberIndex],
+    ...memberData,
+    // Only calculate status if expiryDate changed AND status wasn't manually set
+    status: memberData.status !== undefined ? memberData.status : calculateStatus(memberData.expiryDate || simulatedMembers[memberIndex].expiryDate),
+    dueAmount: parseFloat(memberData.amount) || simulatedMembers[memberIndex].dueAmount
+  };
+  
+  simulatedMembers[memberIndex] = updatedMember;
+  saveMembers(simulatedMembers);
+  
+  return {
+    data: {
+      success: true,
+      data: updatedMember,
+      message: 'Member updated successfully'
     }
-    
-    const updatedMember = {
-      ...simulatedMembers[memberIndex],
-      ...memberData,
-      status: calculateStatus(memberData.expiryDate),
-      dueAmount: parseFloat(memberData.amount) || simulatedMembers[memberIndex].dueAmount
-    };
-    
-    simulatedMembers[memberIndex] = updatedMember;
-    saveMembers(simulatedMembers);
-    
-    return {
-      data: {
-        success: true,
-        data: updatedMember,
-        message: 'Member updated successfully'
-      }
-    };
-  },
-
+  };
+},
   // Delete member
   deleteMember: async (id) => {
     await delay(300);
