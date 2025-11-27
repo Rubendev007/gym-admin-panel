@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const MemberTable = ({ members, onEdit, onDelete }) => {
+const MemberTable = ({ members, onEdit, onDelete, canEdit, loading, selectedMembers, onSelectionChange }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   // Listen for window resize
@@ -33,6 +33,28 @@ const MemberTable = ({ members, onEdit, onDelete }) => {
     fontWeight: '700',
     color: '#1e293b',
     margin: '0'
+  };
+
+  // Selection Styles
+  const checkboxStyle = {
+    width: '16px',
+    height: '16px',
+    cursor: 'pointer'
+  };
+
+  const selectionCellStyle = {
+    width: '40px',
+    textAlign: 'center',
+    padding: '16px 8px',
+    borderBottom: '1px solid #f1f5f9',
+    fontSize: '0.875rem'
+  };
+
+  const selectionHeaderStyle = {
+    ...selectionCellStyle,
+    borderBottom: '1px solid #e2e8f0',
+    fontWeight: '600',
+    color: '#475569'
   };
 
   // Mobile Card Styles
@@ -213,18 +235,35 @@ const MemberTable = ({ members, onEdit, onDelete }) => {
     return amount === 0 ? 'Paid' : `$${amount}`;
   };
 
+  // Selection handler
+  const handleSelectMember = (member, isSelected) => {
+    if (onSelectionChange) {
+      onSelectionChange(member, isSelected);
+    }
+  };
+
   // Mobile Card View
   const renderMobileView = () => {
     return (
       <div style={{ padding: '16px' }}>
         {displayMembers.map((member) => {
           const statusStyles = statusStyle(member.status);
+          const isSelected = selectedMembers?.some(selected => selected.id === member.id);
+          
           return (
             <div key={member.id} style={cardStyle}>
               <div style={cardHeaderStyle}>
-                <div>
-                  <h4 style={memberNameStyle}>{member.name}</h4>
-                  <p style={memberEmailStyle}>{member.email}</p>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <input 
+                    type="checkbox"
+                    style={checkboxStyle}
+                    checked={isSelected || false}
+                    onChange={(e) => handleSelectMember(member, e.target.checked)}
+                  />
+                  <div>
+                    <h4 style={memberNameStyle}>{member.name}</h4>
+                    <p style={memberEmailStyle}>{member.email}</p>
+                  </div>
                 </div>
                 <span style={{
                   padding: '4px 12px',
@@ -279,6 +318,21 @@ const MemberTable = ({ members, onEdit, onDelete }) => {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead style={tableHeaderStyle}>
           <tr>
+            <th style={selectionHeaderStyle}>
+              <input 
+                type="checkbox"
+                style={checkboxStyle}
+                checked={selectedMembers?.length === members.length && members.length > 0}
+                onChange={(e) => {
+                  // Select all/deselect all logic
+                  if (onSelectionChange) {
+                    members.forEach(member => {
+                      onSelectionChange(member, e.target.checked);
+                    });
+                  }
+                }}
+              />
+            </th>
             <th style={headerCellStyle}>Name</th>
             <th style={headerCellStyle}>Plan</th>
             <th style={headerCellStyle}>Expiry Date</th>
@@ -290,6 +344,8 @@ const MemberTable = ({ members, onEdit, onDelete }) => {
         <tbody>
           {displayMembers.map((member) => {
             const statusStyles = statusStyle(member.status);
+            const isSelected = selectedMembers?.some(selected => selected.id === member.id);
+            
             return (
               <tr 
                 key={member.id} 
@@ -301,6 +357,14 @@ const MemberTable = ({ members, onEdit, onDelete }) => {
                   e.target.parentNode.style.backgroundColor = 'transparent';
                 }}
               >
+                <td style={selectionCellStyle}>
+                  <input 
+                    type="checkbox"
+                    style={checkboxStyle}
+                    checked={isSelected || false}
+                    onChange={(e) => handleSelectMember(member, e.target.checked)}
+                  />
+                </td>
                 <td style={cellStyle}>
                   <div>
                     <div style={{ fontWeight: '600', color: '#1e293b' }}>
