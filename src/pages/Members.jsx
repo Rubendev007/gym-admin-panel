@@ -6,6 +6,7 @@ import BulkActions from '../components/members/BulkActions';
 import { useAuthContext } from '../context/AuthProvider';
 import { membersAPI } from '../api/members.api';
 import { showToast } from '../components/ui/Toast';
+import MemberTableSkeleton from '../components/ui/MemberTableSkeleton'; // ADD THIS IMPORT
 
 const Members = () => {
   const { userRole, isAdmin, isStaff } = useAuthContext();
@@ -29,6 +30,48 @@ const Members = () => {
 
   // Bulk actions state
   const [selectedMembers, setSelectedMembers] = useState([]);
+
+  // Load members on component mount
+  useEffect(() => {
+    if (hasLoadedInitially.current) return;
+    hasLoadedInitially.current = true;
+    loadMembers(false); // Don't show toasts on initial load
+  }, []);
+
+const loadMembers = async (showToasts = true) => {
+  let loadingToast;
+  if (showToasts) {
+    loadingToast = showToast.loading('Loading members...');
+  }
+  try {
+    setLoading(true);
+    setError(null);
+    
+    // ADD ARTIFICIAL DELAY TO SEE SKELETON - 3 SECONDS
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    const response = await membersAPI.getMembers();
+    setMembers(response.data.data);
+    if (showToasts) {
+      showToast.dismiss(loadingToast);
+      showToast.success(`Loaded ${response.data.data.length} members successfully`);
+    }
+  } catch (err) {
+    setError(err.message);
+    if (showToasts) {
+      showToast.dismiss(loadingToast);
+      showToast.error(`Failed to load members: ${err.message}`);
+    }
+    console.error('Failed to load members:', err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // ADD THIS CONDITIONAL RENDER - SHOW SKELETON WHILE LOADING
+  if (loading) {
+    return <MemberTableSkeleton />;
+  }
 
   const pageStyle = {
     minHeight: '100vh',
@@ -249,40 +292,6 @@ const Members = () => {
 
   const handleClearSelection = () => {
     setSelectedMembers([]);
-  };
-
-  // Load members on component mount
-  useEffect(() => {
-    if (hasLoadedInitially.current) return;
-    hasLoadedInitially.current = true;
-    loadMembers(false); // Don't show toasts on initial load
-  }, []);
-
-  // Load members from API
-  const loadMembers = async (showToasts = true) => {
-    let loadingToast;
-    if (showToasts) {
-      loadingToast = showToast.loading('Loading members...');
-    }
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await membersAPI.getMembers();
-      setMembers(response.data.data);
-      if (showToasts) {
-        showToast.dismiss(loadingToast);
-        showToast.success(`Loaded ${response.data.data.length} members successfully`);
-      }
-    } catch (err) {
-      setError(err.message);
-      if (showToasts) {
-        showToast.dismiss(loadingToast);
-        showToast.error(`Failed to load members: ${err.message}`);
-      }
-      console.error('Failed to load members:', err);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Add new member - Only Admin
@@ -518,15 +527,6 @@ const Members = () => {
             >
               Reset Data
             </button>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {loading && (
-          <div style={loadingStyle}>
-            <div style={{ fontSize: '2rem', marginBottom: '16px' }}>⏳</div>
-            <h3 style={{ color: '#64748b', margin: '0 0 8px 0' }}>Loading Members...</h3>
-            <p style={{ color: '#94a3b8', margin: 0 }}>Please wait while we fetch member data</p>
           </div>
         )}
 

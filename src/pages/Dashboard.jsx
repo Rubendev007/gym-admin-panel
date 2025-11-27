@@ -1,35 +1,47 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import RevenueChart from '../components/dashboard/RevenueChart';
 import MembershipChart from '../components/dashboard/MembershipChart';
 import StatsCard from '../components/dashboard/StatsCard';
 import QuickInvoiceButton from '../components/dashboard/QuickInvoiceButton';
 import { useAuthContext } from '../context/AuthProvider';
 import { showToast } from '../components/ui/Toast';
+import DashboardSkeleton from '../components/ui/DashboardSkeleton';
 
 const Dashboard = () => {
   const { userRole, isAdmin, isStaff } = useAuthContext();
   const hasShownToasts = useRef(false);
+  const [loading, setLoading] = useState(true);
 
-  // Simulate data loading with toast notifications
+  // DEBUG CONSOLE LOGS
+  console.log('=== DASHBOARD LOADING TEST ===');
+  console.log('Initial loading:', loading);
+
   useEffect(() => {
+    console.log('useEffect running...');
     if (hasShownToasts.current) return;
     hasShownToasts.current = true;
     
     const loadingToast = showToast.loading('Loading dashboard data...');
     
-    // Simulate API call
     setTimeout(() => {
+      console.log('3 seconds passed - setting loading to false');
       showToast.dismiss(loadingToast);
       showToast.success('Dashboard loaded successfully!');
-    }, 1500);
-
-    // Simulate checking for expiring memberships
-    setTimeout(() => {
-      showToast.warning('23 memberships expiring this month');
+      setLoading(false);
     }, 3000);
+
   }, []);
 
-  // ALL STYLE DEFINITIONS (keep your existing styles)
+  console.log('Current loading state:', loading);
+  
+  if (loading) {
+    console.log('🚨 SHOULD BE SHOWING SKELETON NOW 🚨');
+    return <DashboardSkeleton />;
+  }
+  
+  console.log('Showing real content');
+
+  // ALL STYLE DEFINITIONS
   const dashboardStyle = {
     minHeight: '100vh',
     background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
@@ -77,7 +89,6 @@ const Dashboard = () => {
     margin: '0 auto'
   };
 
-  // ADD THIS TEMPORARY ROLE SWITCHER STYLE
   const roleSwitcherStyle = {
     position: 'fixed',
     top: '20px',
@@ -110,32 +121,32 @@ const Dashboard = () => {
 
   return (
     <div style={dashboardStyle}>
-      {/* ADD THIS TEMPORARY ROLE SWITCHER */}
+      {/* ROLE SWITCHER */}
       <div style={roleSwitcherStyle}>
         <div style={currentRoleStyle}>Role: {userRole}</div>
         <button 
-          onClick={() => window.location.reload()} // Simple refresh to reset
+          onClick={() => window.location.reload()}
           style={roleButtonStyle}
         >
           Refresh
         </button>
       </div>
 
+      {/* HEADER */}
       <div style={headerStyle}>
         <h1 style={titleStyle}>
-          {isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard'} {/* DYNAMIC TITLE */}
+          {isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard'}
         </h1>
         <p style={subtitleStyle}>
           {isAdmin() 
             ? 'Monitor your gym performance and member statistics' 
             : 'View member information and daily tasks'
-          } {/* DYNAMIC SUBTITLE */}
+          }
         </p>
       </div>
       
-      {/* Stats Cards Section - CONDITIONAL BASED ON ROLE */}
+      {/* STATS CARDS */}
       <div style={statsGridStyle}>
-        {/* Admin sees financial data, Staff sees basic stats */}
         {isAdmin() && (
           <div onClick={() => showToast.info('Revenue updated in real-time')}>
             <StatsCard 
@@ -165,15 +176,13 @@ const Dashboard = () => {
           />
         </div>
         
-        {/* Only Admin can create invoices */}
         {isAdmin() && (
           <QuickInvoiceButton />
         )}
       </div>
       
-      {/* Charts Section - CONDITIONAL BASED ON ROLE */}
+      {/* CHARTS SECTION */}
       <div style={gridStyle}>
-        {/* Admin sees revenue chart, Staff sees basic info */}
         {isAdmin() ? (
           <RevenueChart />
         ) : (
@@ -195,7 +204,6 @@ const Dashboard = () => {
             </p>
           </div>
         )}
-        
         <MembershipChart />
       </div>
     </div>
