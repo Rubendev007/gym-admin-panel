@@ -1,37 +1,4 @@
-import axios from 'axios';
-
-// Create axios instance with default config
-const apiClient = axios.create({
-  baseURL: '/api', // This would be your actual API base URL
-  timeout: 5000,
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
-
-// Add request interceptor for logging
-apiClient.interceptors.request.use(
-  (config) => {
-    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
-    return config;
-  },
-  (error) => {
-    console.error('API Request Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for error handling
-apiClient.interceptors.response.use(
-  (response) => {
-    console.log(`API Response: ${response.status} ${response.config.url}`);
-    return response;
-  },
-  (error) => {
-    console.error('API Response Error:', error);
-    return Promise.reject(error);
-  }
-);
+import apiClient from './apiClient'; // Use our enhanced client instead of direct axios
 
 // localStorage key
 const STORAGE_KEY = 'gym_members_data';
@@ -105,9 +72,6 @@ const saveMembers = (members) => {
   }
 };
 
-// Initialize with stored data
-let simulatedMembers = getStoredMembers();
-
 // Calculate status based on expiry date
 const calculateStatus = (expiryDate) => {
   const today = new Date();
@@ -121,7 +85,7 @@ const calculateStatus = (expiryDate) => {
 // Simulate network delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// API Functions using Axios patterns
+// API Functions using our enhanced apiClient patterns
 export const membersAPI = {
   // Get all members
   getMembers: async () => {
@@ -133,9 +97,9 @@ export const membersAPI = {
     }
     
     // Reload from localStorage to ensure we have latest data
-    simulatedMembers = getStoredMembers();
+    const simulatedMembers = getStoredMembers();
     
-    // Simulate axios response structure
+    // Use apiClient response structure
     return {
       data: {
         success: true,
@@ -150,7 +114,7 @@ export const membersAPI = {
     await delay(500);
     
     // Reload current data
-    simulatedMembers = getStoredMembers();
+    const simulatedMembers = getStoredMembers();
     
     const newMember = {
       id: Math.max(...simulatedMembers.map(m => m.id), 0) + 1,
@@ -162,7 +126,6 @@ export const membersAPI = {
     simulatedMembers.push(newMember);
     saveMembers(simulatedMembers);
     
-    // Simulate axios response
     return {
       data: {
         success: true,
@@ -172,45 +135,46 @@ export const membersAPI = {
     };
   },
 
-  // Update member
-updateMember: async (id, memberData) => {
-  await delay(500);
-  
-  // Reload current data
-  simulatedMembers = getStoredMembers();
-  
-  const memberIndex = simulatedMembers.findIndex(m => m.id === id);
-  if (memberIndex === -1) {
-    const error = new Error('Member not found');
-    error.response = { status: 404 };
-    throw error;
-  }
-  
-  const updatedMember = {
-    ...simulatedMembers[memberIndex],
-    ...memberData,
-    // Only calculate status if expiryDate changed AND status wasn't manually set
-    status: memberData.status !== undefined ? memberData.status : calculateStatus(memberData.expiryDate || simulatedMembers[memberIndex].expiryDate),
-    dueAmount: parseFloat(memberData.amount) || simulatedMembers[memberIndex].dueAmount
-  };
-  
-  simulatedMembers[memberIndex] = updatedMember;
-  saveMembers(simulatedMembers);
-  
-  return {
-    data: {
-      success: true,
-      data: updatedMember,
-      message: 'Member updated successfully'
+  // Update member - FIXED VERSION (respects manual status updates)
+  updateMember: async (id, memberData) => {
+    await delay(500);
+    
+    // Reload current data
+    const simulatedMembers = getStoredMembers();
+    
+    const memberIndex = simulatedMembers.findIndex(m => m.id === id);
+    if (memberIndex === -1) {
+      const error = new Error('Member not found');
+      error.response = { status: 404 };
+      throw error;
     }
-  };
-},
+    
+    const updatedMember = {
+      ...simulatedMembers[memberIndex],
+      ...memberData,
+      // Only calculate status if expiryDate changed AND status wasn't manually set
+      status: memberData.status !== undefined ? memberData.status : calculateStatus(memberData.expiryDate || simulatedMembers[memberIndex].expiryDate),
+      dueAmount: parseFloat(memberData.amount) || simulatedMembers[memberIndex].dueAmount
+    };
+    
+    simulatedMembers[memberIndex] = updatedMember;
+    saveMembers(simulatedMembers);
+    
+    return {
+      data: {
+        success: true,
+        data: updatedMember,
+        message: 'Member updated successfully'
+      }
+    };
+  },
+
   // Delete member
   deleteMember: async (id) => {
     await delay(300);
     
     // Reload current data
-    simulatedMembers = getStoredMembers();
+    const simulatedMembers = getStoredMembers();
     
     const memberIndex = simulatedMembers.findIndex(m => m.id === id);
     if (memberIndex === -1) {
@@ -220,8 +184,8 @@ updateMember: async (id, memberData) => {
     }
     
     const deletedMember = simulatedMembers[memberIndex];
-    simulatedMembers = simulatedMembers.filter(m => m.id !== id);
-    saveMembers(simulatedMembers);
+    const updatedMembers = simulatedMembers.filter(m => m.id !== id);
+    saveMembers(updatedMembers);
     
     return {
       data: {
@@ -237,7 +201,7 @@ updateMember: async (id, memberData) => {
     await delay(300);
     
     // Reload current data
-    simulatedMembers = getStoredMembers();
+    const simulatedMembers = getStoredMembers();
     
     const member = simulatedMembers.find(m => m.id === id);
     if (!member) {
@@ -258,7 +222,6 @@ updateMember: async (id, memberData) => {
   // Clear all data (for testing/reset)
   clearData: async () => {
     localStorage.removeItem(STORAGE_KEY);
-    simulatedMembers = getStoredMembers();
     return {
       data: {
         success: true,
@@ -268,5 +231,4 @@ updateMember: async (id, memberData) => {
   }
 };
 
-// Export for use in components
 export default membersAPI;
